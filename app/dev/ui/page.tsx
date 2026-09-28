@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Foundations } from "./_sections/foundations";
 import { Primitives } from "./_sections/primitives";
+import { Product } from "./_sections/product";
 
 export const metadata: Metadata = {
   title: "UI kitchen sink",
@@ -22,6 +23,12 @@ const SECTIONS = [
   ["overlays", "Overlays"],
   ["command", "Command"],
   ["feedback", "Feedback"],
+  ["p-status", "Status & counts"],
+  ["p-lists", "Lists & chrome"],
+  ["p-rollcall", "Roll-call & disputes"],
+  ["p-tasks", "Tasks"],
+  ["p-hazards", "Hazards"],
+  ["p-demo", "Demo mode"],
 ] as const;
 
 // Development only: production builds render the 404 page here.
@@ -54,6 +61,7 @@ export default function DevUiPage() {
       </header>
       <Foundations />
       <Primitives />
+      <Product />
     </main>
   );
 }
