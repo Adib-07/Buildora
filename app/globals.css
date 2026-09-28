@@ -1,26 +1,142 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+/* data-open / data-checked / data-selected… variants used by components/ui */
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Saakshi design tokens. Light theme only.
+ *
+ * Contrast (WCAG 2.2 AA): every text/background pair below is at least 4.5:1,
+ * and focus rings and control borders are at least 3:1 against what they sit
+ * on. /dev/ui measures the rendered pairs live. Two limits to respect:
+ * - `border` (#E2E8F0) is 1.2:1 on white, so it is decoration only. Anything a
+ *   user must find to operate (inputs, chips, toggles) uses `input` instead.
+ * - The focus ring is 2.7:1 on `ink`. On dark surfaces use a white ring.
+ */
+
+/* No element ever gets `.dark`, so `dark:` classes never apply. */
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* Colour. Tailwind's default palette is removed: only these tokens exist. */
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-ink: #0f172a;
+  --color-ink-muted: #475569;
+
+  --color-primary: #1d4ed8;
+  --color-primary-foreground: #ffffff;
+  --color-primary-soft: #eff6ff;
+
+  --color-state-confirmed: #15803d;
+  --color-state-confirmed-bg: #f0fdf4;
+  --color-state-disputed: #b91c1c;
+  --color-state-disputed-bg: #fef2f2;
+  --color-state-noreply: #b45309;
+  --color-state-noreply-bg: #fffbeb;
+
+  --color-severity-3: #b91c1c;
+  --color-severity-2: #c2410c;
+  --color-severity-1: #475569;
+
+  --color-focus: #1d4ed8;
+
+  /* shadcn/ui names used inside components/ui. Aliases only: no new colours. */
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-ink);
+  --color-secondary: var(--color-primary-soft);
+  --color-secondary-foreground: var(--color-primary);
+  --color-muted: var(--color-bg);
+  --color-muted-foreground: var(--color-ink-muted);
+  --color-accent: var(--color-primary-soft);
+  --color-accent-foreground: var(--color-ink);
+  --color-destructive: var(--color-state-disputed);
+  --color-input: var(--color-ink-muted);
+  --color-ring: var(--color-focus);
+
+  /* Type. Nothing below 14px, so `text-xs` does not exist. */
+  --text-xs: initial;
+  --text-xs--line-height: initial;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.5;
+
+  /* Shape */
+  --radius-control: 0.5rem; /* inputs, buttons */
+  --radius-card: 0.75rem; /* cards, sheets, dialogs */
+
+  /* Elevation. Flat UI: nothing heavier than shadow-sm exists. */
+  --shadow-*: initial;
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.1), 0 1px 2px -1px rgb(15 23 42 / 0.1);
+
+  /* Motion */
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: ease;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* next/font sets these variables on <html>; see app/layout.tsx. */
+  --font-sans: var(--font-noto-sans), var(--font-noto-sans-telugu), system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: light;
+  }
+
+  /* outline-color is set everywhere, not just on focus, so `transition-colors`
+     does not fade the focus ring in from the text colour. */
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    border-color: var(--color-border);
+    outline-color: var(--color-focus);
+  }
+
+  body {
+    @apply bg-bg font-sans text-base text-ink antialiased;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/*
+ * Telugu vowel signs and conjuncts sit above and below the line and clip at
+ * tight line-heights. Unlayered, so it wins over `leading-*` and `text-*`.
+ */
+:lang(te) {
+  line-height: 1.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
