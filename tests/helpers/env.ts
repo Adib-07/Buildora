@@ -14,7 +14,7 @@ export const SUPABASE_URL =
 export const PUBLISHABLE_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
 
-export const SEED_PASSWORD = 'saakshi-dev-password';
+export const SEED_PASSWORD = 'buildora-dev-password';
 
 export const IDS = {
   siteA: '11111111-1111-4111-8111-111111111111',

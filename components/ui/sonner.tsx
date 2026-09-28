@@ -11,7 +11,7 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 
 // Light theme only, so no next-themes. `unstyled` drops sonner's own look
 // (13px text, heavy shadow, 24px buttons) and every part is styled from the
-// tokens here instead. TriangleAlert is not used: in Saakshi it means "Disputed".
+// tokens here instead. TriangleAlert is not used: in Buildora it means "Disputed".
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner

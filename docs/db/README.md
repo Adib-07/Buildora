@@ -15,7 +15,7 @@ pnpm db:reset           # apply migrations + seed.sql
 Ports were moved off the Supabase defaults (54321/54322) because another local
 project already holds them.
 
-Seeded accounts all use the password `saakshi-dev-password`:
+Seeded accounts all use the password `buildora-dev-password`:
 `supervisor@`, `engineer@`, `owner@quarryridge.test` (site A) and
 `supervisor@harbourworks.test` (site B). Site B exists so cross-site isolation
 can be tested with a real second tenant.

@@ -25,7 +25,7 @@ async function waitForServer(timeoutMs = 120_000) {
 export async function setup() {
   // Piped rather than ignored so a failing integration test can be diagnosed
   // from the test output; vitest surfaces this as the server log.
-  const log = openSync('/tmp/saakshi-test-server.log', 'a');
+  const log = openSync('/tmp/buildora-test-server.log', 'a');
   server = spawn('pnpm', ['exec', 'next', 'dev', '--port', String(PORT)], {
     cwd: process.cwd(),
     stdio: ['ignore', log, log],

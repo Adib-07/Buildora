@@ -1,11 +1,8 @@
 import { MeSchema } from '@/contracts';
 import { isDemoMode } from '@/lib/config/env';
+import { clockTime } from '@/lib/domain/mappers';
 import { now } from '@/lib/domain/clock';
 import { ApiError, withApi } from '@/lib/security/api';
-
-function formatClock(value: string): string {
-  return value.slice(0, 5);
-}
 
 /**
  * GET /api/v1/me
@@ -32,8 +29,8 @@ export const GET = withApi({
       siteId: user.siteId,
       siteName: site.name,
       timezone: site.timezone,
-      shiftEnd: formatClock(site.shift_end),
-      summaryCutoff: formatClock(site.summary_cutoff),
+      shiftEnd: clockTime(site.shift_end),
+      summaryCutoff: clockTime(site.summary_cutoff),
       demoMode: isDemoMode(),
       serverNow: (await now(db, user.siteId)).toISOString(),
     };

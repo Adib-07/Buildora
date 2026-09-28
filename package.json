@@ -1,6 +1,6 @@
 {
-  "name": "saakshi",
-  "version": "0.1.0",
+  "name": "buildora",
+  "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@11.17.0",
   "scripts": {
@@ -11,8 +11,10 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:contracts": "vitest run tests/api/contracts.consistency.test.ts tests/api/response-contract.test.ts tests/security",
     "db:reset": "supabase db reset",
-    "check:secrets": "bash scripts/check-bundle-secrets.sh"
+    "check:secrets": "bash scripts/check-bundle-secrets.sh",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm check:secrets"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

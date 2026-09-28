@@ -1,4 +1,4 @@
--- Saakshi initial schema.
+-- Buildora initial schema.
 --
 -- Derived from contracts/*.ts. Every enum, nullability and check below maps to
 -- a zod schema in contracts/, so a write that satisfies the database also

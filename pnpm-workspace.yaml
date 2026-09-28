@@ -1,4 +1,5 @@
 allowBuilds:
+  # esbuild's postinstall is what makes `tsx` and `vitest` runnable.
   esbuild: true
   sharp: false
   unrs-resolver: false

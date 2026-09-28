@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { LoginRequestSchema, MeSchema } from '@/contracts';
 import { isDemoMode } from '@/lib/config/env';
+import { clockTime } from '@/lib/domain/mappers';
 import { now } from '@/lib/domain/clock';
 import {
   createSessionClient,
@@ -12,11 +13,6 @@ import {
 import { ApiError, withApi } from '@/lib/security/api';
 
 const LoginResponseSchema = z.object({ token: z.string() }).extend(MeSchema.shape);
-
-/** postgres `time` arrives as HH:MM:SS; the contract's ClockSchema wants HH:mm. */
-function formatClock(value: string): string {
-  return value.slice(0, 5);
-}
 
 /**
  * POST /api/v1/auth/login
@@ -64,8 +60,8 @@ export const POST = withApi({
       siteId: user.siteId,
       siteName: site.name,
       timezone: site.timezone,
-      shiftEnd: formatClock(site.shift_end),
-      summaryCutoff: formatClock(site.summary_cutoff),
+      shiftEnd: clockTime(site.shift_end),
+      summaryCutoff: clockTime(site.summary_cutoff),
       demoMode: isDemoMode(),
       serverNow: serverNow.toISOString(),
     };

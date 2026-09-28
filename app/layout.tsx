@@ -19,9 +19,45 @@ const notoSansTelugu = Noto_Sans_Telugu({
   preload: false,
 });
 
+const PRODUCT = "Buildora";
+const DESCRIPTION =
+  "Construction site operations in one place. Workers confirm their shift by SMS or voice in their own language, so attendance, tasks and hazard reports are settled the same day.";
+
 export const metadata: Metadata = {
-  title: { default: "Saakshi", template: "%s · Saakshi" },
-  description: "Daily attendance, tasks and hazard reports that site workers co-sign by SMS.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  title: {
+    default: `${PRODUCT} — site attendance, tasks and safety`,
+    template: `%s · ${PRODUCT}`,
+  },
+  description: DESCRIPTION,
+  applicationName: PRODUCT,
+  keywords: [
+    "construction site management",
+    "labour attendance",
+    "site safety",
+    "hazard reporting",
+    "worker SMS",
+  ],
+  authors: [{ name: PRODUCT }],
+  openGraph: {
+    type: "website",
+    siteName: PRODUCT,
+    title: `${PRODUCT} — site attendance, tasks and safety`,
+    description: DESCRIPTION,
+    locale: "en_GB",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${PRODUCT} — site attendance, tasks and safety`,
+    description: DESCRIPTION,
+  },
+  robots: {
+    // The application itself is behind a session; only the marketing page and
+    // the sign-in page should ever be indexed.
+    index: true,
+    follow: true,
+  },
+  icons: { icon: "/favicon.ico" },
 };
 
 export const viewport: Viewport = {

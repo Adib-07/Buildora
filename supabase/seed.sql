@@ -4,7 +4,7 @@
 -- a set of ids belonging to the *other* site. Ids are fixed literals so tests
 -- can reference them without a lookup.
 --
--- Dev password for every seeded user: saakshi-dev-password
+-- Dev password for every seeded user: buildora-dev-password
 -- (local only -- never reuse outside `supabase start`.)
 
 -- ---------------------------------------------------------------------------
@@ -17,19 +17,19 @@ insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
 values
   ('a1111111-1111-4111-8111-111111111111', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'supervisor@quarryridge.test',
-   crypt('saakshi-dev-password', gen_salt('bf')), now(), now(), now(),
+   crypt('buildora-dev-password', gen_salt('bf')), now(), now(), now(),
    '{"provider":"email","providers":["email"]}', '{"name":"Sita Supervisor"}'),
   ('a2222222-2222-4222-8222-222222222222', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'engineer@quarryridge.test',
-   crypt('saakshi-dev-password', gen_salt('bf')), now(), now(), now(),
+   crypt('buildora-dev-password', gen_salt('bf')), now(), now(), now(),
    '{"provider":"email","providers":["email"]}', '{"name":"Ravi Engineer"}'),
   ('a3333333-3333-4333-8333-333333333333', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'owner@quarryridge.test',
-   crypt('saakshi-dev-password', gen_salt('bf')), now(), now(), now(),
+   crypt('buildora-dev-password', gen_salt('bf')), now(), now(), now(),
    '{"provider":"email","providers":["email"]}', '{"name":"Anita Owner"}'),
   ('b1111111-1111-4111-8111-111111111111', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'supervisor@harbourworks.test',
-   crypt('saakshi-dev-password', gen_salt('bf')), now(), now(), now(),
+   crypt('buildora-dev-password', gen_salt('bf')), now(), now(), now(),
    '{"provider":"email","providers":["email"]}', '{"name":"Other Site Supervisor"}');
 
 -- GoTrue scans these nullable text columns into plain Go strings during the
@@ -257,7 +257,7 @@ insert into public.messages
 values
   ('11111111-1111-4111-8111-111111111111', '0c000001-0000-4000-8000-000000000001',
    '+919876543210', 'out',
-   'Saakshi record for today. Reply 1 if correct, 2 if wrong.', 'record', 'en',
+   'Buildora record for today. Reply 1 if correct, 2 if wrong.', 'record', 'en',
    'queued', 'record:seed:0c000001-0000-4000-8000-000000000001:1');
 
 insert into public.inbound_messages (site_id, from_phone, kind, text, received_at)

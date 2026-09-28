@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ZodError, type ZodType } from 'zod';
 
-import { errorStatus, type ErrorCode, type ErrorResponse, type Role } from '@/contracts';
+import { errorStatus, type ErrorResponse, type Role } from '@/contracts';
 
 import {
   cookieStoreFromNext,
@@ -10,70 +10,27 @@ import {
   resolveSessionUser,
   type SessionUser,
 } from '@/lib/auth/session';
+import { ApiError, fromPostgrest } from '@/lib/domain/errors';
+import { serviceRoleClient } from '@/lib/db/service-role';
 import { logger, newRequestId } from '@/lib/security/logger';
-
-/**
- * An error that is safe to show a client.
- *
- * Anything thrown that is not an ApiError is reported as INTERNAL with a fixed
- * message, so stack traces, SQL text and PostgREST internals never reach the
- * response body. They go to the log with the request id instead.
- */
-export class ApiError extends Error {
-  readonly code: ErrorCode;
-  readonly fields?: Record<string, string>;
-
-  constructor(code: ErrorCode, message: string, fields?: Record<string, string>) {
-    super(message);
-    this.name = 'ApiError';
-    this.code = code;
-    this.fields = fields;
-  }
-
-  static unauthorized(message = 'Authentication required.') {
-    return new ApiError('UNAUTHORIZED', message);
-  }
-  static forbidden(message = 'Not permitted.') {
-    return new ApiError('FORBIDDEN', message);
-  }
-  /**
-   * The single not-found response.
-   *
-   * Used for both "row does not exist" and "row belongs to another site". The
-   * caller cannot distinguish the two, which is what stops a site-B staff member
-   * from probing site-A ids to learn whether they exist.
-   */
-  static notFound() {
-    return new ApiError('NOT_FOUND', 'Not found.');
-  }
-  static validation(fields: Record<string, string>, message = 'Invalid request.') {
-    return new ApiError('VALIDATION', message, fields);
-  }
-}
-
-/** Translates a PostgREST error into a client-safe ApiError. */
-export function fromPostgrest(error: { code?: string; message: string }): ApiError {
-  switch (error.code) {
-    case '23505':
-      return new ApiError('VALIDATION', 'A record with these values already exists.');
-    case '23503':
-      return new ApiError('VALIDATION', 'Referenced record does not exist.');
-    case '23514':
-      return new ApiError('VALIDATION', 'Value violates a database constraint.');
-    case '42501':
-      // PostgreSQL `insufficient_privilege`: a row-level security policy
-      // refused the statement. Surface it as NOT_FOUND, not FORBIDDEN, so the
-      // response is identical to a genuinely absent row.
-      return ApiError.notFound();
-    default:
-      return new ApiError('INTERNAL', 'Request could not be completed.');
-  }
-}
 
 export type ApiContext = {
   requestId: string;
+  /** Reads run as the signed-in user, so RLS scopes every query to the caller's
+   *  own site. This is the tenant-isolation boundary. */
   db: SupabaseClient;
   user: SessionUser;
+  /**
+   * Writes run with the service role, because the rules that guard them
+   * (expectedVersion, the day lock, exactly one task owner) live in this layer
+   * and must not be skippable by a caller holding a valid JWT.
+   *
+   * A getter, so the key is only required by routes that actually write: a
+   * read-only deployment does not need `SUPABASE_SERVICE_ROLE_KEY` at all.
+   */
+  readonly writer: SupabaseClient;
+  /** Dynamic route segments, already resolved by Next. */
+  params: Record<string, string>;
 };
 
 type Options<T, B, Q> = {
@@ -119,7 +76,10 @@ function errorResponse(requestId: string, error: ApiError) {
 export function withApi<T, B = undefined, Q = undefined>(options: Options<T, B, Q>) {
   const { response, body, query, roles, auth = true, handler } = options;
 
-  return async (request: Request): Promise<NextResponse> => {
+  return async (
+    request: Request,
+    context?: { params?: Promise<Record<string, string>> },
+  ): Promise<NextResponse> => {
     const requestId = newRequestId();
     const started = Date.now();
 
@@ -127,6 +87,9 @@ export function withApi<T, B = undefined, Q = undefined>(options: Options<T, B, 
       const url = new URL(request.url);
       let parsedBody = undefined as B;
       let parsedQuery = undefined as Q;
+      // Next resolves dynamic segments before the handler runs; await the
+      // promise so handlers see plain values.
+      const params = (await context?.params) ?? {};
 
       if (query) {
         const raw: Record<string, string> = {};
@@ -158,6 +121,10 @@ export function withApi<T, B = undefined, Q = undefined>(options: Options<T, B, 
         requestId,
         db,
         user: user as SessionUser,
+        get writer() {
+          return serviceRoleClient();
+        },
+        params,
         input: { body: parsedBody, query: parsedQuery },
       });
 
@@ -206,3 +173,5 @@ export function withApi<T, B = undefined, Q = undefined>(options: Options<T, B, 
     }
   };
 }
+
+export { ApiError, fromPostgrest };

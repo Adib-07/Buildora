@@ -2,7 +2,10 @@ import { createServerClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-import { supabaseConfig } from '@/lib/config/env';
+import type { Me } from '@/contracts';
+
+import { supabaseConfig, isDemoMode } from '@/lib/config/env';
+import { now } from '@/lib/domain/clock';
 
 /**
  * Cookie access is injected rather than imported from next/headers so the auth
@@ -59,6 +62,44 @@ export const SessionUserSchema = z.object({
 });
 
 export type SessionUser = z.infer<typeof SessionUserSchema>;
+
+/** postgres `time` arrives as HH:MM:SS; the contract's ClockSchema wants HH:mm. */
+function clockTime(value: string): string {
+  return value.slice(0, 5);
+}
+
+/**
+ * The full `Me` payload for a signed-in staff member: identity plus the site
+ * settings every screen needs (timezone, shift end, summary cutoff).
+ *
+ * Built in one place so no page has to assemble it, and so a page cannot
+ * accidentally show a shift end from a different site than the user.
+ */
+export async function loadSession(
+  client: SupabaseClient,
+  user: SessionUser,
+): Promise<Me> {
+  const { data: site, error } = await client
+    .from('sites')
+    .select('name, timezone, shift_end, summary_cutoff')
+    .eq('id', user.siteId)
+    .maybeSingle();
+  if (error || !site) throw new Error('Site lookup failed.');
+
+  const serverNow = await now(client, user.siteId);
+  return {
+    staffId: user.staffId,
+    name: user.name,
+    role: user.role,
+    siteId: user.siteId,
+    siteName: site.name,
+    timezone: site.timezone,
+    shiftEnd: clockTime(site.shift_end),
+    summaryCutoff: clockTime(site.summary_cutoff),
+    demoMode: isDemoMode(),
+    serverNow: serverNow.toISOString(),
+  };
+}
 
 /**
  * Resolves the caller to a staff row.
