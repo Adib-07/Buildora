@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, LockIcon } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState, PageHeader } from "@/components/feedback";
-import { AttendanceStatusBadge, RateBar, StatCard, WorkerStateBadge } from "@/components/status";
+import { RosterGrid } from "@/components/roster-grid";
+import { WorkerPhoneSimulator } from "@/components/worker-phone-simulator";
 
 import { requireSession } from "@/lib/auth/dal";
 import { getDayAttendance } from "@/lib/domain/attendance";
@@ -62,6 +62,28 @@ export default async function AttendancePage(props: PageProps<"/attendance">) {
       ? 'This day is locked. Corrections are recorded as amendments.'
       : 'Only a site supervisor can change a record.';
 
+  // One real worker for the phone simulator. Chosen from this site's roster --
+  // never invented -- so the phone shows a number that exists in the database
+  // and the reply lands in a queue that can be inspected.
+  let demoWorker: { workerId: string; workerName: string; phone: string } | null = null;
+  if (me.demoMode) {
+    const { data } = await db
+      .from('workers')
+      .select('id, full_name, phone_e164')
+      .eq('site_id', user.siteId)
+      .eq('active', true)
+      .order('full_name')
+      .limit(1);
+    const row = data?.[0];
+    if (row) {
+      demoWorker = {
+        workerId: row.id,
+        workerName: row.full_name,
+        phone: row.phone_e164,
+      };
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -77,74 +99,57 @@ export default async function AttendancePage(props: PageProps<"/attendance">) {
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="On shift" value={day.counts.total} />
-        <StatCard label="Confirmed" value={day.counts.confirmed} tone="positive" />
-        <StatCard
-          label="Awaiting reply"
-          value={day.counts.noReply}
-          tone={day.counts.noReply > 0 ? "warning" : "default"}
-        />
-        <StatCard
-          label="Disputed"
-          value={day.counts.disputed}
-          tone={day.counts.disputed > 0 ? "critical" : "default"}
-        />
-      </div>
+      <RosterGrid day={day} shiftEnd={me.shiftEnd} />
 
-      <Card>
-        <CardContent>
-          <RateBar confirmed={day.counts.confirmed} total={day.counts.total} />
-        </CardContent>
-      </Card>
-
-      {day.records.length === 0 ? (
-        <EmptyState
-          icon={CalendarDaysIcon}
-          title="Nobody is rostered for this day"
-          description="Once the shift is rolled over, each worker appears here with their record."
+      {/* Only on a demo deployment, and only once a roster exists to read. */}
+      {me.demoMode && demoWorker ? (
+        <WorkerPhoneSimulator
+          workerName={demoWorker.workerName}
+          phone={demoWorker.phone}
+          shiftWindow={`08:00 – ${me.shiftEnd}`}
+          hours={day.records.find((r) => r.workerId === demoWorker.workerId)?.hours ?? 8}
         />
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {day.records.map((record) => (
-            <li key={record.id}>
-              <Card>
-                <CardContent>
-                  <div className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-base font-semibold text-ink">
-                        {record.workerName}
-                      </p>
-                      {record.teamName ? (
-                        <Badge variant="outline">{record.teamName}</Badge>
-                      ) : null}
-                      <AttendanceStatusBadge status={record.status} />
-                      <WorkerStateBadge state={record.workerState} />
-                      {record.late ? <Badge variant="outline">Late</Badge> : null}
-                      <span className="ml-auto text-sm text-ink-muted">
-                        {record.hours}h · v{record.version}
+      ) : null}
+
+      {/* Identity, state, hours and version are all in the grid above, so this
+          block is only the editing surface. It renders for a supervisor on an
+          unlocked day and nowhere else -- for a reader it would be the same rows
+          twice with less information. */}
+      {canEdit ? (
+        <Card>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <p className="font-semibold text-ink">Adjust records</p>
+              <p className="text-sm text-ink-muted">
+                Every change is versioned, and a worker who already replied is
+                asked again rather than being overwritten.
+              </p>
+            </div>
+            <ul className="flex flex-col gap-3">
+              {day.records.map((record) => (
+                <li
+                  key={record.id}
+                  className="flex flex-col gap-2 border-t border-border pt-3 first:border-t-0 first:pt-0"
+                >
+                  <p className="font-medium text-ink">
+                    {record.workerName}
+                    {record.teamName ? (
+                      <span className="ml-2 text-sm text-ink-muted">
+                        {record.teamName}
                       </span>
-                    </div>
-
-                    <AttendanceEditor
-                      record={record}
-                      disabled={!canEdit}
-                      disabledReason={editReason}
-                    />
-
-                    {record.workerState === "disputed" ? (
-                      <p className="text-sm text-state-disputed">
-                        This worker disputed the record. Resolve it from the Disputes
-                        queue so the reason is kept with the decision.
-                      </p>
                     ) : null}
-                  </div>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      )}
+                  </p>
+                  <AttendanceEditor
+                    record={record}
+                    disabled={!canEdit}
+                    disabledReason={editReason}
+                  />
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

@@ -86,7 +86,10 @@ export function AppNav({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 border-b border-border bg-surface">
+      <header
+        data-print="hide"
+        className="sticky top-0 z-40 border-b border-border bg-surface"
+      >
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3">
           <Link
             href="/dashboard"

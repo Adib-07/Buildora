@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Noto_Sans, Noto_Sans_Telugu } from "next/font/google";
+import { IBM_Plex_Mono, Noto_Sans, Noto_Sans_Telugu } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,6 +20,16 @@ const notoSansTelugu = Noto_Sans_Telugu({
   subsets: ["telugu"],
   variable: "--font-noto-sans-telugu",
   preload: false,
+});
+
+// Fixed-width face for the data columns: punch times, hours, wage totals and
+// record ids. A proportional face gives digits differing widths, so a column of
+// times cannot be scanned vertically.
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-mono",
+  display: "swap",
 });
 
 const PRODUCT = "Buildora";
@@ -73,7 +83,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${notoSans.variable} ${notoSansTelugu.variable}`}>
+    <html
+      lang="en"
+      className={`${notoSans.variable} ${notoSansTelugu.variable} ${plexMono.variable}`}
+    >
       <body>
         <a
           href="#main-content"

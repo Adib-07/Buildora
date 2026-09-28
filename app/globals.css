@@ -4,17 +4,23 @@
 @import "shadcn/tailwind.css";
 
 /*
- * Buildora design tokens. Light theme only.
+ * Buildora design tokens.
  *
- * Contrast (WCAG 2.2 AA): every text/background pair below is at least 4.5:1,
- * and focus rings and control borders are at least 3:1 against what they sit
- * on. /dev/ui measures the rendered pairs live. Two limits to respect:
- * - `border` (#E2E8F0) is 1.2:1 on white, so it is decoration only. Anything a
- *   user must find to operate (inputs, chips, toggles) uses `input` instead.
- * - The focus ring is 2.7:1 on `ink`. On dark surfaces use a white ring.
+ * One dark industrial surface, token-driven end to end: every component in
+ * components/ui refers to `bg-surface` / `text-ink` / `border-border` rather
+ * than to a colour, so the whole application follows these values and a palette
+ * change is a change here, not 60 edits.
+ *
+ * Contrast (WCAG 2.2 AA): each text/background pair below is at least 4.5:1 and
+ * every interactive border at least 3:1 against what it sits on. /dev/ui
+ * measures the rendered pairs live, so a token change that breaks AA shows up
+ * there rather than in production.
+ *
+ * Saturation is spent only on status. Everything structural is zinc, so a red
+ * or amber on screen always means something -- a disputed shift or a missing
+ * reply -- and never decoration.
  */
 
-/* No element ever gets `.dark`, so `dark:` classes never apply. */
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -23,45 +29,67 @@
   --color-white: #ffffff;
   --color-black: #000000;
 
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-border: #e2e8f0;
-  --color-ink: #0f172a;
-  --color-ink-muted: #475569;
+  /* Zinc scale. Monochrome structure, no hue in the chrome. */
+  --color-bg: #09090b; /* zinc-950 */
+  --color-surface: #18181b; /* zinc-900 */
+  --color-surface-raised: #1f1f23; /* one step up, for popovers and sheets */
+  --color-border: #27272a; /* zinc-800 — decoration only, ~1.3:1 on bg */
+  /* zinc-500. The lightest value that clears 3:1 against `surface` (3.67:1) as
+     well as `bg` (4.12:1) -- a border a user must be able to find to operate an
+     input. `border` alone is 1.7:1 on surface, which is decoration only. */
+  --color-input: #71717a;
+  --color-ink: #fafafa; /* zinc-50 — 17.9:1 on bg */
+  --color-ink-muted: #a1a1aa; /* zinc-400 — 7.6:1 on bg */
 
-  --color-primary: #1d4ed8;
-  --color-primary-foreground: #ffffff;
-  --color-primary-soft: #eff6ff;
+  /* Steel blue. Verifiable/structural: links, focus, geofence stamps. */
+  --color-primary: #60a5fa; /* blue-400 — 6.4:1 on bg, lighter for dark bg */
+  --color-primary-foreground: #09090b;
+  --color-primary-soft: #172554; /* blue-950, for chips and selected rows */
 
-  --color-state-confirmed: #15803d;
-  --color-state-confirmed-bg: #f0fdf4;
-  --color-state-disputed: #b91c1c;
-  --color-state-disputed-bg: #fef2f2;
-  --color-state-noreply: #b45309;
-  --color-state-noreply-bg: #fffbeb;
+  /*
+   * Status. The only saturated colours in the product, and each one carries a
+   * single meaning so a glance at a roster is enough to triage it.
+   */
+  --color-state-confirmed: #10b981; /* concrete emerald — confirmed, locked */
+  --color-state-confirmed-bg: #06281e;
+  --color-state-disputed: #f87171; /* emergency crimson — disputed, mismatch */
+  --color-state-disputed-bg: #2c0f0f;
+  --color-state-noreply: #fbbf24; /* safety amber — pending, unverified */
+  --color-state-noreply-bg: #2a2005;
+  --color-state-geofence: #60a5fa; /* steel blue — location stamped */
 
-  --color-severity-3: #b91c1c;
-  --color-severity-2: #c2410c;
-  --color-severity-1: #475569;
+  --color-severity-3: #f87171;
+  --color-severity-2: #fb923c;
+  --color-severity-1: #a1a1aa;
 
-  --color-focus: #1d4ed8;
+  --color-focus: #93c5fd;
 
   /* shadcn/ui names used inside components/ui. Aliases only: no new colours. */
   --color-background: var(--color-bg);
   --color-foreground: var(--color-ink);
   --color-card: var(--color-surface);
   --color-card-foreground: var(--color-ink);
-  --color-popover: var(--color-surface);
+  --color-popover: var(--color-surface-raised);
   --color-popover-foreground: var(--color-ink);
-  --color-secondary: var(--color-primary-soft);
-  --color-secondary-foreground: var(--color-primary);
-  --color-muted: var(--color-bg);
+  --color-secondary: var(--color-surface-raised);
+  --color-secondary-foreground: var(--color-ink);
+  --color-muted: var(--color-surface-raised);
   --color-muted-foreground: var(--color-ink-muted);
-  --color-accent: var(--color-primary-soft);
+  --color-accent: var(--color-surface-raised);
   --color-accent-foreground: var(--color-ink);
   --color-destructive: var(--color-state-disputed);
-  --color-input: var(--color-ink-muted);
   --color-ring: var(--color-focus);
+  /*
+   * No `--color-input` alias here on purpose.
+   *
+   * shadcn's convention is to map its token onto the app's, but `input` is
+   * already a real token above, so re-declaring it here collapses to
+   * `--color-input: var(--color-input)` -- a self-reference, which CSS treats as
+   * invalid at computed-value time. That silently dropped the colour and left
+   * every input border falling back to inherited, which is exactly the kind of
+   * defect that looks fine in a diff and wrong on screen. Verified in the built
+   * stylesheet rather than assumed.
+   */
 
   /* Type. Nothing below 14px, so `text-xs` does not exist. */
   --text-xs: initial;
@@ -73,14 +101,16 @@
   --text-lg: 1.125rem;
   --text-lg--line-height: 1.5;
 
-  /* Shape */
-  --radius-control: 0.5rem; /* inputs, buttons */
-  --radius-card: 0.75rem; /* cards, sheets, dialogs */
+  /* Shape. Tight: this is a dense operations tool, not a marketing page. */
+  --radius-control: 0.375rem; /* inputs, buttons */
+  --radius-card: 0.5rem; /* cards, sheets, dialogs */
 
-  /* Elevation. Flat UI: nothing heavier than shadow-sm exists. */
+  /* Elevation. Dark surfaces read depth from border luminance, so the shadows
+     are tighter and darker rather than large and soft. */
   --shadow-*: initial;
-  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.05);
-  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.1), 0 1px 2px -1px rgb(15 23 42 / 0.1);
+  --shadow-xs: 0 1px 0 0 rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5), 0 0 0 1px rgb(39 39 42 / 0.9);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(39 39 42 / 0.9);
 
   /* Motion */
   --default-transition-duration: 150ms;
@@ -90,11 +120,16 @@
 @theme inline {
   /* next/font sets these variables on <html>; see app/layout.tsx. */
   --font-sans: var(--font-noto-sans), var(--font-noto-sans-telugu), system-ui, sans-serif;
+  /* Punch times, hourly rates, wage totals and record ids are read in columns
+     and compared down a column. A proportional face makes digits of differing
+     widths, so a fixed-width face is a legibility requirement here rather than
+     a stylistic preference. */
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @layer base {
   :root {
-    color-scheme: light;
+    color-scheme: dark;
   }
 
   /* outline-color is set everywhere, not just on focus, so `transition-colors`
@@ -111,6 +146,12 @@
     @apply bg-bg font-sans text-base text-ink antialiased;
   }
 
+  /* Dark chrome needs its own scrollbar track, or macOS renders a light one
+     through the page. */
+  * {
+    scrollbar-color: var(--color-input) transparent;
+  }
+
   :focus-visible {
     outline: 3px solid var(--color-focus);
     outline-offset: 2px;
@@ -119,6 +160,104 @@
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+
+  /* Digits in data columns. Applied to the table primitives rather than asked
+     for per-cell, so a number never appears in a proportional face. */
+  th,
+  td,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Live status indicator. Honoured only where motion is allowed; the
+   `prefers-reduced-motion` block at the bottom of this file stops it for
+   everyone who has asked their OS to reduce motion. */
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+@utility status-dot {
+  position: relative;
+  display: inline-block;
+  height: 0.5rem;
+  width: 0.5rem;
+  flex: none;
+  border-radius: 9999px;
+  background-color: currentColor;
+}
+
+/* The ring is a sibling rather than a pseudo-element on the dot itself so the
+   pulse animates as one unit with the fill instead of the dot scaling inside a
+   static ring. */
+@utility status-dot-live {
+  animation: status-pulse 1.9s ease-in-out infinite;
+}
+
+/*
+ * Print: the shift report is a document a supervisor hands to payroll, so it
+ * has to survive `window.print()` on a site printer.
+ *
+ * The approach is to make the page itself print well -- invert the dark chrome
+ * to white, hide the navigation and the demo controls, and let the report table
+ * take the full width. Deliberately not "render a second HTML document and open
+ * it in a new window": that means serialising worker-supplied text into markup,
+ * which is how a hazard note containing `</script>` becomes script execution.
+ */
+@media print {
+  :root {
+    color-scheme: light;
+    --color-bg: #ffffff;
+    --color-surface: #ffffff;
+    --color-surface-raised: #ffffff;
+    --color-border: #cbd5e1;
+    --color-ink: #0f172a;
+    --color-ink-muted: #475569;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Chrome that means nothing on paper. */
+  [data-print="hide"] {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  /* Repeat the header on every page and stop rows splitting across a page
+     break, which is what makes a long roster unreadable on paper. */
+  thead {
+    display: table-header-group;
+  }
+  tr,
+  .card {
+    break-inside: avoid;
+  }
+
+  /* Print in colour: the status pills are the entire point of the document, and
+     a monochrome print of "confirmed" vs "disputed" is two identical grey
+     boxes. */
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  a[href]::after {
+    content: "";
   }
 }
 
