@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { unstable_rethrow } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ZodError, type ZodType } from 'zod';
 
@@ -11,6 +12,7 @@ import {
   type SessionUser,
 } from '@/lib/auth/session';
 import { ApiError, fromPostgrest } from '@/lib/domain/errors';
+import { ConfigurationError } from '@/lib/config/env';
 import { serviceRoleClient } from '@/lib/db/service-role';
 import { logger, newRequestId } from '@/lib/security/logger';
 
@@ -152,17 +154,34 @@ export function withApi<T, B = undefined, Q = undefined>(options: Options<T, B, 
       );
       return NextResponse.json(parsed, { headers: { 'x-request-id': requestId } });
     } catch (error) {
+      // A handler may call `redirect()`/`notFound()`, and Next also throws a
+      // dynamic-usage sentinel when a route touches `cookies()` during
+      // prerendering. Reporting either as INTERNAL would convert framework
+      // control flow into a 500. `unstable_rethrow` passes those straight
+      // through and returns for everything else.
+      unstable_rethrow(error);
+
       const apiError =
         error instanceof ApiError
           ? error
           : error instanceof ZodError
             ? ApiError.validation(fieldErrors(error))
-            : new ApiError('INTERNAL', 'Request could not be completed.');
+            : error instanceof ConfigurationError
+              ? // The deployment is misconfigured, not the request. 503 with a
+                // retryable code tells a client the call is worth repeating;
+                // a 500 would read as our bug and get retried forever anyway.
+                // `issues` names variables and stays in the log, not the body.
+                new ApiError('DEPENDENCY_DOWN', 'Service is not configured correctly. Try again shortly.')
+              : new ApiError('INTERNAL', 'Request could not be completed.');
 
-      if (apiError.code === 'INTERNAL') {
+      if (apiError.code === 'INTERNAL' || apiError.code === 'DEPENDENCY_DOWN') {
         // Full detail stays server-side.
         logger.error(
-          { requestId, err: error instanceof Error ? error.message : String(error) },
+          {
+            requestId,
+            err: error instanceof Error ? error.message : String(error),
+            configFault: error instanceof ConfigurationError,
+          },
           'api failed',
         );
       } else {

@@ -9,8 +9,9 @@ import {
 } from "lucide-react";
 
 import { BrandLockup } from "@/components/brand";
+import { ConfigNotice } from "@/components/config-notice";
 import { Button } from "@/components/ui/button";
-import { getSession } from "@/lib/auth/dal";
+import { getSession, isMisconfigured } from "@/lib/auth/dal";
 
 /**
  * Public landing page.
@@ -21,7 +22,12 @@ import { getSession } from "@/lib/auth/dal";
  * security section describes what is enforced rather than what is planned.
  */
 export default async function Home() {
-  const session = await getSession();
+  // `getSession()` is total: it returns null rather than throwing when the
+  // database is unreachable or unconfigured, so this public page renders either
+  // way. A misconfigured deployment is still worth saying out loud, because the
+  // sign-in button it offers cannot work.
+  const misconfigured = isMisconfigured();
+  const session = misconfigured ? null : await getSession();
 
   const PILLARS = [
     {
@@ -47,7 +53,11 @@ export default async function Home() {
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3">
           <BrandLockup />
           <div className="ml-auto">
-            {session ? (
+            {misconfigured ? (
+              <span className="text-sm font-medium text-ink-muted">
+                Sign-in unavailable
+              </span>
+            ) : session ? (
               <Button asChild>
                 <Link href="/dashboard">
                   Open Buildora
@@ -79,16 +89,27 @@ export default async function Home() {
               payroll you can defend, not a register you have to trust.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link href={session ? "/dashboard" : "/login"}>
-                  {session ? "Go to your site" : "Sign in to your site"}
-                  <ArrowRightIcon data-icon="inline-end" />
-                </Link>
-              </Button>
+              {/* Conditional rather than `disabled` on an `asChild` button:
+                  Slot would forward `disabled` onto the anchor, which is not a
+                  valid attribute for it. */}
+              {misconfigured ? (
+                <Button size="lg" disabled>
+                  Sign-in unavailable
+                </Button>
+              ) : (
+                <Button asChild size="lg">
+                  <Link href={session ? "/dashboard" : "/login"}>
+                    {session ? "Go to your site" : "Sign in to your site"}
+                    <ArrowRightIcon data-icon="inline-end" />
+                  </Link>
+                </Button>
+              )}
               <Button asChild variant="outline" size="lg">
                 <a href="#how-it-works">How it works</a>
               </Button>
             </div>
+
+            {misconfigured ? <ConfigNotice className="mt-8 max-w-2xl" /> : null}
 
             {/* Stated plainly, because the difference matters to anyone
                 evaluating this: the site-side product is built, the SMS and

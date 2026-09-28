@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { LogOutIcon, MenuIcon } from "lucide-react";
+import { FlaskConicalIcon, LogOutIcon, MenuIcon } from "lucide-react";
 
 import { BrandLockup } from "@/components/brand";
 import { Button } from "@/components/ui/button";
@@ -99,6 +99,16 @@ export function AppNav({
           </Link>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* Persistent, unmissable, and not dismissible. On a demo build every
+                figure on every screen is seeded or simulated, and a judge must
+                be able to tell that without being told. Removing this badge
+                would be the difference between a demo and a misrepresentation. */}
+            {me.demoMode ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-state-noreply/30 bg-state-noreply-bg px-2.5 py-1 text-xs font-semibold text-state-noreply">
+                <FlaskConicalIcon className="size-3.5" aria-hidden="true" />
+                Demo data
+              </span>
+            ) : null}
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-ink">{me.name}</p>
               <p className="text-sm text-ink-muted">

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AppNav } from "@/components/app-nav";
+import { AuthedErrorBoundary } from "@/components/error-boundary";
 import { signOut } from "@/app/actions";
 import { requireSession } from "@/lib/auth/dal";
 
@@ -28,8 +29,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const { me } = await requireSession();
 
   return (
-    <AppNav me={me} signOut={signOut}>
-      {children}
-    </AppNav>
+    <AuthedErrorBoundary>
+      <AppNav me={me} signOut={signOut}>
+        {children}
+      </AppNav>
+    </AuthedErrorBoundary>
   );
 }

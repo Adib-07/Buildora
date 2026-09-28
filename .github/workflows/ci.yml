@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A superseded run on the same ref is cancelled rather than queued.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches .nvmrc. Keep these three in step: pnpm must be on PATH
+          # before setup-node runs for the cache to be keyed correctly.
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # `next build` prerenders the public routes. It does not need the real
+      # database, but it does load the root layout, which reads the browser-facing
+      # env -- so the shape is validated here even though no query runs.
+      - name: Verify environment
+        run: pnpm verify:env
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-key
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # Unit and static-analysis only. The API/RLS suites spawn `next dev` and
+      # need a live local Supabase; they are a separate job with a service
+      # container, not something to run on a machine without Docker.
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-key
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+  integration:
+    name: API, RLS and contract suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Docker is heavier than it looks and the database suites are the slowest
+    # thing in the repo. They still gate a PR; a push to main does not pay for
+    # them twice over.
+    if: github.event_name == 'pull_request'
+
+    services:
+      supabase:
+        # The Supabase CLI owns its own container topology (db, auth, rest,
+        # kong), so it is started by the job itself rather than declared here.
+        image: supabase/postgres:15.8.1.060
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Start Supabase
+        run: |
+          pnpm dlx supabase@latest start --exclude studio,imgproxy,realtime,storage,edge-runtime,logflare,vector,supavisor
+        env:
+          SUPABASE_DB_PASSWORD: postgres
+
+      - name: Apply migrations
+        run: pnpm dlx supabase@latest db reset --local
+
+      - name: API, RLS and contract tests
+        run: pnpm test:integration
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.CI_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.CI_SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          DEMO_MODE: 'false'
+          AI_DISABLED: 'true'
+          LOG_LEVEL: silent

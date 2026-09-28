@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 
 import { BrandLockup } from "@/components/brand";
+import { ConfigNotice } from "@/components/config-notice";
 
-import { getSession } from "@/lib/auth/dal";
+import { getSession, isMisconfigured } from "@/lib/auth/dal";
+import { isDemoMode } from "@/lib/config/env";
 
 import { SignInForm } from "./sign-in-form";
 
@@ -14,7 +16,8 @@ import { SignInForm } from "./sign-in-form";
  * flashes a login prompt at someone who is already authenticated.
  */
 export default async function LoginPage(props: PageProps<"/login">) {
-  const session = await getSession();
+  const misconfigured = isMisconfigured();
+  const session = misconfigured ? null : await getSession();
   if (session) redirect("/dashboard");
 
   const params = await props.searchParams;
@@ -32,13 +35,26 @@ export default async function LoginPage(props: PageProps<"/login">) {
       >
         <div className="flex flex-col gap-6">
           <BrandLockup />
+          {misconfigured ? <ConfigNotice /> : null}
           <div className="flex flex-col gap-1">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">Sign in</h1>
             <p className="text-ink-muted">
               Use the staff account issued for your site.
             </p>
           </div>
-          <SignInForm next={next} />
+          {misconfigured ? null : (
+            <SignInForm
+              next={next}
+              demoAccount={
+                isDemoMode()
+                  ? {
+                      email: "supervisor@quarryridge.test",
+                      password: "buildora-dev-password",
+                    }
+                  : null
+              }
+            />
+          )}
         </div>
       </main>
     </div>

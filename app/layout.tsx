@@ -4,6 +4,9 @@ import { Noto_Sans, Noto_Sans_Telugu } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
+import { AppErrorBoundary } from "@/components/error-boundary";
+import { siteUrl } from "@/lib/config/env";
+
 import "./globals.css";
 
 const notoSans = Noto_Sans({
@@ -24,7 +27,10 @@ const DESCRIPTION =
   "Construction site operations in one place. Workers confirm their shift by SMS or voice in their own language, so attendance, tasks and hazard reports are settled the same day.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  // `siteUrl()` never throws: a malformed NEXT_PUBLIC_SITE_URL previously threw
+  // from this module while the root layout was loading, which fails the build
+  // locally and 500s every request in production.
+  metadataBase: siteUrl(),
   title: {
     default: `${PRODUCT} — site attendance, tasks and safety`,
     template: `%s · ${PRODUCT}`,
@@ -75,7 +81,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to main content
         </a>
-        <TooltipProvider>{children}</TooltipProvider>
+        <AppErrorBoundary name="root">
+          <TooltipProvider>{children}</TooltipProvider>
+        </AppErrorBoundary>
         <Toaster />
       </body>
     </html>

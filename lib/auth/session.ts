@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import type { Me } from '@/contracts';
 
-import { supabaseConfig, isDemoMode } from '@/lib/config/env';
+import { requireSupabasePublicEnv, isDemoMode } from '@/lib/config/env';
 import { now } from '@/lib/domain/clock';
 
 /**
@@ -39,10 +39,10 @@ export function cookieStoreFromNext(cookieStore: {
  * refuses them, not the application code.
  */
 export function createSessionClient(cookies: CookieStore): SupabaseClient {
-  const url = supabaseConfig.url();
-  const key = supabaseConfig.publishableKey();
-  if (!url) throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set.');
-  if (!key) throw new Error('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is not set.');
+  // Validated together so a half-configured deployment fails with one message
+  // naming every gap, as a ConfigurationError the caller can recognise, rather
+  // than a raw TypeError from the Supabase constructor.
+  const { url, key } = requireSupabasePublicEnv();
 
   return createServerClient(url, key, {
     cookies: {

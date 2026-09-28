@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { redirect, unstable_rethrow } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Me, Role } from '@/contracts';
@@ -14,6 +14,8 @@ import {
   type SessionUser,
 } from '@/lib/auth/session';
 import { ApiError } from '@/lib/domain/errors';
+import { ConfigurationError, isSupabaseConfigured } from '@/lib/config/env';
+import { logger } from '@/lib/security/logger';
 
 /**
  * Data Access Layer for Server Components and Server Actions.
@@ -47,12 +49,53 @@ export async function db(): Promise<SupabaseClient> {
  * `getUser()` revalidates the token with the Auth server rather than reading a
  * cached one, so a revoked or expired cookie yields null here instead of a
  * stale identity.
+ *
+ * This function never throws. It is reached from the *public* landing page and
+ * the sign-in page, so a Supabase client that cannot even be constructed -- an
+ * unset variable, or the Auth server being unreachable -- would otherwise
+ * propagate out of the render and take down `global-error.tsx`, 500ing every
+ * route including the one a user needs in order to fix anything. Instead the
+ * caller is treated as signed out (fail-closed: no data is read, nothing is
+ * granted) and the cause is logged. `requireSession` turns the null into a
+ * redirect, so a protected page stays protected.
  */
 export async function getSession(): Promise<Session | null> {
-  const client = await db();
-  const user = await resolveSessionUser(client);
-  if (!user) return null;
-  return { user, me: await loadSession(client, user), db: client };
+  try {
+    const client = await db();
+    const user = await resolveSessionUser(client);
+    if (!user) return null;
+    return { user, me: await loadSession(client, user), db: client };
+  } catch (error) {
+    // Next routes control flow through thrown errors: `cookies()` throws a
+    // dynamic-usage sentinel to bail a route out of static rendering, and
+    // `redirect()`/`notFound()` throw digests. Swallowing any of those would
+    // break prerendering and silently turn a redirect into a rendered page.
+    // `unstable_rethrow` re-throws exactly those and returns for everything else,
+    // so the guard below only ever sees a genuine fault.
+    unstable_rethrow(error);
+
+    // Redacted by the logger's config; the message names a variable or a host,
+    // never a token.
+    logger.error(
+      {
+        err: error instanceof Error ? error.message : String(error),
+        configFault: error instanceof ConfigurationError,
+      },
+      'session lookup failed; treating caller as signed out',
+    );
+    return null;
+  }
+}
+
+/**
+ * True when the browser-facing Supabase config is incomplete.
+ *
+ * Lets a public page say "sign-in is unavailable, this deployment is missing
+ * configuration" instead of offering a button that cannot work. The message
+ * deliberately names no variable values -- only that something is missing.
+ */
+export function isMisconfigured(): boolean {
+  return !isSupabaseConfigured();
 }
 
 /**

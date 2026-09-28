@@ -11,8 +11,11 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:unit": "vitest run --config vitest.unit.config.mts",
+    "test:integration": "vitest run tests/api tests/db",
     "test:contracts": "vitest run tests/api/contracts.consistency.test.ts tests/api/response-contract.test.ts tests/security",
     "db:reset": "supabase db reset",
+    "verify:env": "tsx scripts/verify-env.mts",
     "check:secrets": "bash scripts/check-bundle-secrets.sh",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm check:secrets"
   },

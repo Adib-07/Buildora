@@ -31,7 +31,8 @@ export type Endpoint = {
 
 const idParam = { id: z.string().uuid() };
 const dateParam = { date: DateOnlySchema };
-const emptyResponse = z.object({});
+/** Routes that acknowledge an action and carry no payload. */
+export const emptyResponse = z.object({});
 
 export const endpoints = {
   // ---- Auth ----

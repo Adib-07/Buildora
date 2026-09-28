@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { createServerClient } from "@supabase/ssr";
 
-import { supabaseConfig } from "@/lib/config/env";
+import { supabaseConfig, isSupabaseConfigured } from "@/lib/config/env";
 
 /**
  * Optimistic route guard.
@@ -42,32 +42,38 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   let signedIn = false;
-  try {
-    // Must be constructed per request: this client reads and refreshes the
-    // caller's cookies, so a shared instance would leak one visitor's session
-    // into another's request.
-    const supabase = createServerClient(
-      supabaseConfig.url(),
-      supabaseConfig.publishableKey(),
-      {
-        cookies: {
-          getAll: () => request.cookies.getAll(),
-          setAll: (cookies) => {
-            for (const cookie of cookies) {
-              request.cookies.set(cookie.name, cookie.value);
-            }
+
+  // Cheap precondition check before any network call. Without it an
+  // unconfigured deployment pays a failed connection (or a DNS lookup against
+  // an empty host) on *every* request before failing anyway.
+  if (isSupabaseConfigured()) {
+    try {
+      // Must be constructed per request: this client reads and refreshes the
+      // caller's cookies, so a shared instance would leak one visitor's session
+      // into another's request.
+      const supabase = createServerClient(
+        supabaseConfig.url(),
+        supabaseConfig.publishableKey(),
+        {
+          cookies: {
+            getAll: () => request.cookies.getAll(),
+            setAll: (cookies) => {
+              for (const cookie of cookies) {
+                request.cookies.set(cookie.name, cookie.value);
+              }
+            },
           },
+          auth: { autoRefreshToken: false, persistSession: false },
         },
-        auth: { autoRefreshToken: false, persistSession: false },
-      },
-    );
-    const { data } = await supabase.auth.getUser();
-    signedIn = data.user !== null;
-  } catch {
-    // Supabase unreachable or unconfigured. Fail closed: treat as signed out
-    // and let the page-level guard produce the real error message, rather than
-    // letting an unchecked request through.
-    signedIn = false;
+      );
+      const { data } = await supabase.auth.getUser();
+      signedIn = data.user !== null;
+    } catch {
+      // Supabase unreachable. Fail closed: treat as signed out and let the
+      // page-level guard produce the real error message, rather than letting an
+      // unchecked request through.
+      signedIn = false;
+    }
   }
 
   if (isProtected(pathname) && !signedIn) {

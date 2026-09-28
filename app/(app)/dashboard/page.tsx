@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState, PageHeader } from "@/components/feedback";
 import { HazardStatusBadge, RateBar, SeverityBadge, StatCard, WorkerStateBadge } from "@/components/status";
+import { ReadinessScore } from "@/components/readiness-score";
+import { ExportReportButton } from "@/components/export-report-button";
+import { JudgeConsole } from "@/components/judge-console";
 
 import { requireSession, toRenderable } from "@/lib/auth/dal";
 import { getDayAttendance, latestDayWithRecords } from "@/lib/domain/attendance";
@@ -13,6 +16,8 @@ import { listDisputes } from "@/lib/domain/disputes";
 import { listHazards } from "@/lib/domain/hazards";
 import { listDayTasks } from "@/lib/domain/tasks";
 import { localDate, now } from "@/lib/domain/clock";
+import { computeReadiness } from "@/lib/domain/readiness";
+import { buildShiftReport, reportFilename } from "@/lib/domain/report";
 
 /**
  * "Today" -- what a supervisor needs before the shift ends.
@@ -67,6 +72,75 @@ export default async function DashboardPage() {
   const hoursBooked = attendance.records.reduce((sum, r) => sum + r.hours, 0);
   const awaitingReply = attendance.counts.noReply;
 
+  // One number derived from the counts already on this page, so the score can
+  // never disagree with the figures it is scored from.
+  const readiness = computeReadiness({
+    date,
+    total: attendance.counts.total,
+    confirmed: attendance.counts.confirmed,
+    disputed: attendance.counts.disputed,
+    noReply: attendance.counts.noReply,
+    openDisputes: disputes.length,
+    untriagedHazards: untriaged.length,
+    hazardsTotal: hazards.items.length,
+    locked: attendance.locked,
+  });
+
+  const readableDate = formatDay(date, me.timezone);
+
+  // A real SIM number for the console's "worker replies" action. Queried only on
+  // a demo deployment, and read through the session client so RLS still applies.
+  const demoPhone = me.demoMode
+    ? (
+        await db
+          .from("workers")
+          .select("phone_e164")
+          .eq("site_id", user.siteId)
+          .eq("active", true)
+          .order("full_name")
+          .limit(1)
+      ).data?.[0]?.phone_e164 ?? null
+    : null;
+
+  // Generated on the server from the rows above. No client fetch, so the export
+  // cannot drift from what the supervisor is looking at.
+  const report = buildShiftReport({
+    siteName: me.siteName,
+    date,
+    readableDate,
+    timezone: me.timezone,
+    shiftEnd: me.shiftEnd,
+    locked: attendance.locked,
+    readiness,
+    workers: {
+      total: attendance.counts.total,
+      confirmed: attendance.counts.confirmed,
+      disputed: attendance.counts.disputed,
+      noReply: attendance.counts.noReply,
+      hoursBooked,
+    },
+    openDisputes: disputes.slice(0, 20).map((dispute) => ({
+      workerName: dispute.workerName,
+      reason: dispute.reasonText ?? '',
+      hours: dispute.record.hours,
+    })),
+    hazards: hazards.items.slice(0, 20).map((hazard) => ({
+      code: hazard.code,
+      summary: hazard.summary,
+      severity: hazard.severity,
+      status: hazard.status,
+    })),
+    tasks: tasks.slice(0, 20).map((task) => ({
+      title: task.title,
+      owner: task.ownerName,
+      location: task.location,
+    })),
+    awaitingReply: attendance.records
+      .filter((record) => record.workerState === "no_reply")
+      .map((record) => record.workerName),
+    generatedAt: new Date().toISOString(),
+  });
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -74,15 +148,22 @@ export default async function DashboardPage() {
         description={
           isToday
             ? `Shift ends ${me.shiftEnd}. Site time is ${me.timezone}.`
-            : `Showing the most recent shift with records: ${formatDay(date, me.timezone)}.`
+            : `Showing the most recent shift with records: ${readableDate}.`
         }
         actions={
-          <Button asChild variant="outline">
-            <Link href={`/attendance?date=${date}`}>
-              Full attendance
-              <ArrowRightIcon data-icon="inline-end" />
-            </Link>
-          </Button>
+          <>
+            <ExportReportButton
+              markdown={report}
+              filename={reportFilename(me.siteName, date)}
+              summary="Copy, download or print this shift report"
+            />
+            <Button asChild variant="outline">
+              <Link href={`/attendance?date=${date}`}>
+                Full attendance
+                <ArrowRightIcon data-icon="inline-end" />
+              </Link>
+            </Button>
+          </>
         }
       />
 
@@ -134,7 +215,9 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <ReadinessScore readiness={readiness} />
+
         {/* Disputes first: they are the only item that blocks payroll. */}
         <Card>
           <CardHeader>
@@ -288,6 +371,12 @@ export default async function DashboardPage() {
           </div>
         </Card>
       </div>
+
+      {/* Rendered only on a demo deployment, and only when a session exists --
+          the endpoints it calls are session-scoped and DEMO_MODE-gated. */}
+      {me.demoMode ? (
+        <JudgeConsole date={date} demoPhone={demoPhone} />
+      ) : null}
     </div>
   );
 }
