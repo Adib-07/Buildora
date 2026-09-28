@@ -10,11 +10,23 @@ import {
 
 import { BrandLockup } from "@/components/brand";
 import { ConfigNotice } from "@/components/config-notice";
+import { RoleLauncher } from "@/components/role-launcher";
 import { Button } from "@/components/ui/button";
 import { getSession, isMisconfigured } from "@/lib/auth/dal";
+import { isDemoMode } from "@/lib/config/env";
+
+export const dynamic = "force-dynamic";
 
 /**
  * Public landing page.
+ *
+ * Forced dynamic on purpose. This page used to become static whenever the
+ * database was unconfigured at build time -- `getSession()` is skipped, so
+ * nothing touched `cookies()`, so Next prerendered the "not connected" HTML and
+ * served that same HTML forever, ignoring env vars added to the host later.
+ * A landing page that cannot see the current configuration is exactly the
+ * failure this whole change set exists to remove, so the decision is stated here
+ * rather than left to an accident of which branch runs.
  *
  * Leads with the problem rather than the feature list: a supervisor closing a
  * shift is chasing paper registers and unreadable SMS replies. The three
@@ -27,6 +39,7 @@ export default async function Home() {
   // way. A misconfigured deployment is still worth saying out loud, because the
   // sign-in button it offers cannot work.
   const misconfigured = isMisconfigured();
+  const demoMode = isDemoMode();
   const session = misconfigured ? null : await getSession();
 
   const PILLARS = [
@@ -110,6 +123,23 @@ export default async function Home() {
             </div>
 
             {misconfigured ? <ConfigNotice className="mt-8 max-w-2xl" /> : null}
+
+            {/* Demo builds get one-click access to the real, signed-in product
+                instead of a sign-in form. Not a mock: each card authenticates as
+                a seeded account, so the role boundaries the database enforces
+                are the ones a judge sees. */}
+            {demoMode ? (
+              <section className="mt-8 max-w-4xl">
+                <h2 className="text-lg font-semibold text-ink">Open a workspace</h2>
+                <p className="mt-1 text-sm text-ink-muted">
+                  Each option signs you in as a real seeded account, so you see
+                  exactly what that role is allowed to see.
+                </p>
+                <div className="mt-4">
+                  <RoleLauncher />
+                </div>
+              </section>
+            ) : null}
 
             {/* Stated plainly, because the difference matters to anyone
                 evaluating this: the site-side product is built, the SMS and
